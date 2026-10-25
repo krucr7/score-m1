@@ -1,0 +1,7 @@
+project_id = "score-m1"
+
+[functions.student-score-lookup]
+verify_jwt = false
+
+[functions.set-student-pin]
+verify_jwt = true
