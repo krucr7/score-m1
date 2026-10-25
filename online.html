@@ -90,11 +90,11 @@ async function importStudentCSV(file){
       const p=await sb.functions.invoke('set-student-pin',{body:{student_id:ins.data.id,pin}});
       added++;
       if(p.error||p.data?.error)pinFailed++;
-      if(pinIndex<0)pinReport.push([code,name,pin]);
+      else if(pinIndex<0)pinReport.push([code,name,pin]);
     }
     await loadData();
     if(pinReport.length)downloadPinList(pinReport);
-    notice('studentMsg','นำเข้ารายชื่อเสร็จแล้ว: เพิ่ม '+added+' คน, ข้าม '+skipped+' แถว'+(pinFailed?' และตั้ง PIN ไม่สำเร็จ '+pinFailed+' คน':'')+(pinReport.length?'\\nระบบดาวน์โหลดไฟล์ PIN แยกไว้แล้ว กรุณาเก็บไฟล์นี้เป็นความลับ':'')+'.',pinFailed?'error':'good');
+    notice('studentMsg','นำเข้ารายชื่อเสร็จแล้ว: เพิ่ม '+added+' คน, ข้าม '+skipped+' แถว'+(pinFailed?' และตั้ง PIN ไม่สำเร็จ '+pinFailed+' คน':'')+(pinReport.length?'\\nดาวน์โหลดไฟล์ PIN เฉพาะรายการที่ตั้งสำเร็จแล้ว กรุณาเก็บเป็นความลับ':'')+'.',pinFailed?'error':'good');
   }catch(e){notice('studentMsg','อ่านหรือนำเข้าไฟล์ไม่สำเร็จ: '+friendly(e),'error')}
   finally{$('studentCsvFile').value=''}
 }
