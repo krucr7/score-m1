@@ -23,7 +23,7 @@
 <div class="tabs"><button class="tab active" data-tab="students">นักเรียน</button><button class="tab" data-tab="scores">ตารางคะแนน</button><button class="tab" data-tab="setup">ตั้งค่าห้อง/วิชา</button></div>
 <section id="panel-students" class="panel"><div class="grid">
 <div class="card"><h3>เพิ่มนักเรียน</h3><form id="studentForm"><div class="field"><label for="studentCode">รหัสนักเรียน</label><input id="studentCode" class="input" maxlength="40" required></div><div class="field"><label for="studentName">ชื่อ-นามสกุล</label><input id="studentName" class="input" maxlength="160" required></div><div class="field"><label for="studentPin">PIN สำหรับดูคะแนน (6–8 หลัก)</label><input id="studentPin" class="input" type="password" inputmode="numeric" pattern="[0-9]{6,8}" minlength="6" maxlength="8" required></div><button id="addStudentBtn" class="btn primary">เพิ่มนักเรียน</button></form><div id="studentMsg"></div></div>
-<div class="card"><div class="row"><div class="grow"><h3>รายชื่อนักเรียน</h3><p id="studentCount" class="muted">0 คน</p></div><input id="studentFilter" class="input grow" placeholder="ค้นหาชื่อหรือรหัส" style="max-width:230px"></div><div id="studentsTable" class="tablebox"></div></div>
+<div class="card"><div class="row"><div class="grow"><h3>รายชื่อนักเรียน</h3><p id="studentCount" class="muted">0 คน</p></div><input id="studentFilter" class="input grow" placeholder="ค้นหาชื่อหรือรหัส" style="max-width:230px"><button id="importStudentsBtn" type="button" class="btn outline">นำเข้า CSV</button><input id="studentCsvFile" type="file" accept=".csv,text/csv,text/plain" class="hidden"></div><p class="muted">นำเข้ารายชื่อจาก CSV ได้ รองรับหัวคอลัมน์ภาษาไทย/อังกฤษ และตัวคั่น , ; หรือแท็บ</p><div id="studentsTable" class="tablebox"></div></div>
 </div></section>
 <section id="panel-scores" class="panel hidden"><div class="card"><h3>สร้างรายการประเมิน</h3><form id="assessmentForm" class="grid"><div class="field"><label>ชื่องาน/แบบทดสอบ</label><input id="assessmentTitle" class="input" required maxlength="120"></div><div class="field"><label>คะแนนเต็ม</label><input id="assessmentMax" class="input" type="number" min="0.01" step="0.01" value="10" required></div><div class="field"><label>ประเภท</label><select id="assessmentType"><option>งาน/ใบงาน</option><option>แบบทดสอบ</option><option>สอบกลางภาค</option><option>สอบปลายภาค</option></select></div><div class="field"><label>การเผยแพร่</label><select id="assessmentPublished"><option value="false">ยังไม่เผยแพร่</option><option value="true">เผยแพร่ให้นักเรียน</option></select></div><div><button class="btn primary">เพิ่มรายการประเมิน</button></div></form><div id="assessmentList"></div></div><div class="card"><h3>ตารางกรอกคะแนน</h3><p class="muted">พิมพ์คะแนนในช่องแล้วกด Tab หรือคลิกออกจากช่องเพื่อบันทึก</p><div id="gradebook" class="tablebox"></div><div id="scoreMsg"></div></div></section>
 <section id="panel-setup" class="panel hidden"><div class="grid"><div class="card"><h3>สร้างห้องเรียน</h3><form id="classForm"><div class="field"><label>ชื่อห้อง</label><input id="className" class="input" required placeholder="ม.1/1"></div><div class="field"><label>ระดับชั้น</label><input id="classGrade" class="input" value="ม.1" required></div><div class="field"><label>ปีการศึกษา</label><input id="classYear" class="input" value="2569" required></div><button class="btn primary">สร้างห้องเรียน</button></form></div><div class="card"><h3>สร้างรายวิชา</h3><form id="subjectForm"><div class="field"><label>ชื่อวิชา</label><input id="subjectName" class="input" required></div><div class="field"><label>ภาคเรียน/ปีการศึกษา</label><input id="subjectTerm" class="input" value="ภาคเรียนที่ 1 / 2569" required></div><button class="btn primary">สร้างรายวิชา</button></form></div></div></section>
@@ -50,6 +50,57 @@ $('classForm').addEventListener('submit',async e=>{e.preventDefault();if(!user)r
 $('subjectForm').addEventListener('submit',async e=>{e.preventDefault();if(!classId){notice('teacherMsg','กรุณาสร้างและเลือกห้องเรียนก่อน','error');return}const b=e.submitter;busy(b,true,'สร้างรายวิชา');try{const r=await sb.from('subjects').insert({name:$('subjectName').value.trim(),classroom_id:classId,term:$('subjectTerm').value.trim(),teacher_id:user.id}).select().single();if(r.error)throw r.error;subjects.push(r.data);subjectId=r.data.id;setSelects();$('subjectName').value='';await loadData();notice('teacherMsg','สร้างรายวิชาสำเร็จ','good')}catch(x){notice('teacherMsg',friendly(x),'error')}finally{busy(b,false,'สร้างรายวิชา')}});
 // FIX: adding a student requires only a selected classroom. The payload uses real DB column names, not UI labels.
 $('studentForm').addEventListener('submit',async e=>{e.preventDefault();if(!user){notice('studentMsg','กรุณาเข้าสู่ระบบครูก่อน','error');return}if(!classId){notice('studentMsg','กรุณาสร้างและเลือกห้องเรียนก่อนเพิ่มนักเรียน','error');return}const code=$('studentCode').value.trim(),name=$('studentName').value.trim(),pin=$('studentPin').value.trim();if(!code||!name){notice('studentMsg','กรุณากรอกรหัสนักเรียนและชื่อ-นามสกุล','error');return}if(!/^\d{6,8}$/.test(pin)){notice('studentMsg','PIN ต้องเป็นตัวเลข 6–8 หลัก','error');return}const b=$('addStudentBtn');busy(b,true,'เพิ่มนักเรียน');notice('studentMsg','');try{const r=await sb.from('students').insert({student_code:code,full_name:name,classroom_id:classId,active:true}).select('id,student_code,full_name,classroom_id,active').single();if(r.error)throw r.error;students.push(r.data);$('studentForm').reset();renderStudents();$('countStudents').textContent=students.filter(s=>s.active).length;try{const p=await sb.functions.invoke('set-student-pin',{body:{student_id:r.data.id,pin}});if(p.error||p.data?.error)throw p.error||Error(p.data.error);notice('studentMsg','เพิ่มนักเรียนและตั้ง PIN สำเร็จ','good')}catch(pinError){notice('studentMsg','เพิ่มรายชื่อนักเรียนสำเร็จแล้ว แต่ตั้ง PIN ไม่สำเร็จ ให้ deploy Edge Function set-student-pin จากโฟลเดอร์ supabase/functions แล้วตั้ง PIN ใหม่: '+friendly(pinError),'error')}await loadData()}catch(x){notice('studentMsg',friendly(x),'error')}finally{busy(b,false,'เพิ่มนักเรียน')}});
+
+function parseStudentCSV(text){
+  text=String(text||'').replace(/^\uFEFF/,'').replace(/^sep=[,;\t]\s*\r?\n/i,'');
+  const first=(text.split(/\r?\n/).find(x=>x.trim())||'');
+  const count=(line,d)=>{let n=0,q=false;for(let i=0;i<line.length;i++){if(line[i]==='"'){if(q&&line[i+1]==='"'){i++;continue}q=!q}else if(!q&&line[i]===d)n++}return n};
+  const delim=[',',';','\t'].sort((a,b)=>count(first,b)-count(first,a))[0];
+  const rows=[];let row=[],cell='',quoted=false;
+  for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(c==='"'&&text[i+1]==='"'){cell+='"';i++}else if(c==='"')quoted=false;else cell+=c}else if(c==='"')quoted=true;else if(c===delim){row.push(cell);cell=''}else if(c==='\n'){row.push(cell.replace(/\r$/,''));rows.push(row);row=[];cell=''}else cell+=c}
+  if(cell.length||row.length){row.push(cell.replace(/\r$/,''));rows.push(row)}
+  return rows.filter(r=>r.some(v=>String(v).trim()!==''));
+}
+function normalizeStudentHeader(v){return String(v??'').replace(/^\uFEFF/,'').trim().toLowerCase().normalize('NFKC').replace(/^["']|["']$/g,'').replace(/[\s_\-–—.\/()]/g,'')}
+function makeStudentPin(){const n=new Uint32Array(1);crypto.getRandomValues(n);return String(100000+(n[0]%900000))}
+function downloadPinList(rows){
+  if(!rows.length)return;
+  const csv='\uFEFF'+[['รหัสนักเรียน','ชื่อ-นามสกุล','PIN'],...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='PIN-นักเรียนที่นำเข้า.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+async function importStudentCSV(file){
+  if(!user){notice('studentMsg','กรุณาเข้าสู่ระบบครูก่อน','error');return}
+  if(!classId){notice('studentMsg','กรุณาสร้างและเลือกห้องเรียนก่อนนำเข้ารายชื่อ','error');return}
+  try{
+    const rows=parseStudentCSV(await file.text());
+    if(rows.length<2){notice('studentMsg','ไฟล์ไม่มีแถวข้อมูล กรุณาตรวจสอบไฟล์ CSV','error');return}
+    const head=rows[0].map(normalizeStudentHeader);
+    const codeIndex=head.findIndex(h=>h.includes('รหัสนักเรียน')||h.includes('เลขประจำตัว')||['รหัส','code','studentcode','studentid','id'].includes(h));
+    const nameIndex=head.findIndex(h=>h.includes('ชื่อนามสกุล')||h.includes('ชื่อสกุล')||h.includes('ชื่อนักเรียน')||['ชื่อ','fullname','studentname','name'].includes(h));
+    const pinIndex=head.findIndex(h=>['pin','studentpin','รหัสpin','พิน'].includes(h));
+    if(codeIndex<0||nameIndex<0){notice('studentMsg','ไม่พบหัวคอลัมน์รหัส/ชื่อที่รู้จัก\\nระบบรองรับตัวอย่าง: รหัสนักเรียน, ชื่อ-นามสกุล หรือ student_code, full_name\\nหัวคอลัมน์ที่อ่านได้: '+rows[0].join(' | '),'error');return}
+    let added=0,skipped=0,pinFailed=0;const pinReport=[];
+    for(const row of rows.slice(1)){
+      const code=String(row[codeIndex]||'').trim().toUpperCase(),name=String(row[nameIndex]||'').trim();
+      if(!code||!name){skipped++;continue}
+      const pin=pinIndex>=0?String(row[pinIndex]||'').trim():makeStudentPin();
+      if(!/^\d{6,8}$/.test(pin)){skipped++;continue}
+      const ins=await sb.from('students').insert({student_code:code,full_name:name,classroom_id:classId,active:true}).select('id').single();
+      if(ins.error){skipped++;continue}
+      const p=await sb.functions.invoke('set-student-pin',{body:{student_id:ins.data.id,pin}});
+      added++;
+      if(p.error||p.data?.error)pinFailed++;
+      if(pinIndex<0)pinReport.push([code,name,pin]);
+    }
+    await loadData();
+    if(pinReport.length)downloadPinList(pinReport);
+    notice('studentMsg','นำเข้ารายชื่อเสร็จแล้ว: เพิ่ม '+added+' คน, ข้าม '+skipped+' แถว'+(pinFailed?' และตั้ง PIN ไม่สำเร็จ '+pinFailed+' คน':'')+(pinReport.length?'\\nระบบดาวน์โหลดไฟล์ PIN แยกไว้แล้ว กรุณาเก็บไฟล์นี้เป็นความลับ':'')+'.',pinFailed?'error':'good');
+  }catch(e){notice('studentMsg','อ่านหรือนำเข้าไฟล์ไม่สำเร็จ: '+friendly(e),'error')}
+  finally{$('studentCsvFile').value=''}
+}
+$('importStudentsBtn').addEventListener('click',()=>$('studentCsvFile').click());
+$('studentCsvFile').addEventListener('change',e=>{if(e.target.files?.[0])importStudentCSV(e.target.files[0])});
+
 $('studentFilter').addEventListener('input',renderStudents);function renderStudents(){const q=$('studentFilter').value.trim().toLowerCase(),rows=students.filter(s=>(s.student_code+' '+s.full_name).toLowerCase().includes(q));$('studentCount').textContent=rows.length+' คน';$('studentsTable').innerHTML=rows.length?'<table><thead><tr><th>รหัสนักเรียน</th><th>ชื่อ-นามสกุล</th><th>สถานะ</th><th>PIN</th></tr></thead><tbody>'+rows.map(s=>'<tr><td>'+esc(s.student_code)+'</td><td>'+esc(s.full_name)+'</td><td>'+(s.active?'ใช้งาน':'ปิด')+'</td><td><button class="btn outline" data-pin="'+s.id+'">ตั้ง PIN ใหม่</button></td></tr>').join('')+'</tbody></table>':'<div style="padding:16px;color:var(--muted)">ยังไม่มีนักเรียนในห้องที่เลือก</div>';$('studentsTable').querySelectorAll('[data-pin]').forEach(b=>b.addEventListener('click',async()=>{const pin=prompt('ใส่ PIN ใหม่ 6–8 หลัก');if(pin===null)return;if(!/^\d{6,8}$/.test(pin)){notice('studentMsg','PIN ต้องเป็นตัวเลข 6–8 หลัก','error');return}const r=await sb.functions.invoke('set-student-pin',{body:{student_id:b.dataset.pin,pin}});if(r.error||r.data?.error)notice('studentMsg',friendly(r.error||Error(r.data.error)),'error');else notice('studentMsg','ตั้ง PIN ใหม่สำเร็จ','good')}))}
 $('assessmentForm').addEventListener('submit',async e=>{e.preventDefault();if(!subjectId){notice('scoreMsg','กรุณาสร้างและเลือกรายวิชาก่อนเพิ่มรายการประเมิน','error');return}const b=e.submitter;busy(b,true,'เพิ่มรายการ');try{const r=await sb.from('assessments').insert({subject_id:subjectId,title:$('assessmentTitle').value.trim(),max_score:Number($('assessmentMax').value),assessment_type:$('assessmentType').value,visible_to_students:$('assessmentPublished').value==='true',sort_order:assessments.length+1}).select().single();if(r.error)throw r.error;$('assessmentTitle').value='';await loadData();notice('scoreMsg','เพิ่มรายการประเมินแล้ว','good')}catch(x){notice('scoreMsg',friendly(x),'error')}finally{busy(b,false,'เพิ่มรายการประเมิน')}});
 function renderAssessments(){$('assessmentList').innerHTML=assessments.length?'<table><thead><tr><th>รายการประเมิน</th><th>คะแนนเต็ม</th><th>เผยแพร่</th></tr></thead><tbody>'+assessments.map(a=>'<tr><td>'+esc(a.title)+'</td><td>'+a.max_score+'</td><td><input type="checkbox" data-pub="'+a.id+'" '+(a.visible_to_students?'checked':'')+'></td></tr>').join('')+'</tbody></table>':'<p class="muted">ยังไม่มีรายการประเมิน</p>';$('assessmentList').querySelectorAll('[data-pub]').forEach(el=>el.addEventListener('change',async()=>{const a=assessments.find(x=>x.id===el.dataset.pub),r=await sb.from('assessments').update({visible_to_students:el.checked}).eq('id',a.id);if(r.error){el.checked=!el.checked;notice('scoreMsg',friendly(r.error),'error')}else a.visible_to_students=el.checked}))}
