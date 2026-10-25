@@ -109,6 +109,8 @@ grant select, insert, update, delete on public.students to authenticated;
 grant select, insert, update, delete on public.assessments to authenticated;
 grant select, insert, update, delete on public.scores to authenticated;
 revoke all on public.student_lookup_attempts from anon, authenticated;
+grant all on public.profiles, public.classrooms, public.subjects, public.students, public.assessments, public.scores, public.student_lookup_attempts to service_role;
+grant usage, select on all sequences in schema public to service_role;
 
 drop policy if exists profiles_read_self on public.profiles;
 create policy profiles_read_self on public.profiles for select to authenticated
