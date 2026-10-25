@@ -113,10 +113,7 @@ revoke all on public.student_lookup_attempts from anon, authenticated;
 drop policy if exists profiles_read_self on public.profiles;
 create policy profiles_read_self on public.profiles for select to authenticated
 using (user_id = (select auth.uid()));
-drop policy if exists profiles_update_self_name on public.profiles;
-create policy profiles_update_self_name on public.profiles for update to authenticated
-using (user_id = (select auth.uid()))
-with check (user_id = (select auth.uid()) and role = (select p.role from public.profiles p where p.user_id = (select auth.uid())));
+-- Profile roles are managed by a trusted administrator in the SQL Editor, not by the browser.
 
 drop policy if exists classrooms_select_owner_teacher on public.classrooms;
 create policy classrooms_select_owner_teacher on public.classrooms for select to authenticated
